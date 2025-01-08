@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vintage Postcard Creator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a365d;
+            --secondary: #d4b788;
+            --bg-color: #f4e4bc;
+            --border-color: #d4b788;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Georgia', serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg-color);
+            padding: 20px;
+            background-image: 
+                radial-gradient(#d4b78833 2px, transparent 2px),
+                radial-gradient(#d4b78833 2px, transparent 2px);
+            background-size: 32px 32px;
+            background-position: 0 0, 16px 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .controls-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .preview-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .input-group textarea {
+            height: 120px;
+            resize: vertical;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .text-controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .text-control {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .postcard {
+            width: 800px;
+            height: 500px;
+            margin: 0 auto;
+            perspective: 2000px;
+        }
+
+        .postcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.8s;
+        }
+
+        .postcard.flipped .postcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .postcard-front,
+        .postcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .postcard-front {
+            padding: 20px;
+        }
+
+        .photo-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+        }
+
+        .photo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .location-text {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 10px;
+            text-align: center;
+            z-index: 10;
+            text-shadow: 0 0 4px rgba(255,255,255,0.8);
+        }
+
+        .airmail-border {
+            position: absolute;
+            inset: 0;
+            border: 20px solid transparent;
+            border-image: repeating-linear-gradient(
+                45deg,
+                #ff000040,
+                #ff000040 10px,
+                #0066cc40 10px,
+                #0066cc40 20px
+            ) 20;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .postcard-back {
+            transform: rotateY(180deg);
+            display: grid;
+            grid-template-columns: 60% 40%;
+            padding: 20px;
+            background-image: 
+                linear-gradient(#d4b78822 1px, transparent 1px),
+                linear-gradient(90deg, #d4b78822 1px, transparent 1px);
+            background-size: 25px 25px;
+        }
+
+        .message-area {
+            padding: 20px;
+            border-right: 2px solid var(--border-color);
+            white-space: pre-wrap;
+            line-height: 25px;
+        }
+
+        .address-area {
+            padding: 20px;
+            position: relative;
+        }
+
+        .stamp-area {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 70px;
+            border: 1px dashed var(--border-color);
+        }
+
+        .postmark {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transform: rotate(-15deg);
+            opacity: 0.5;
+            color: var(--primary);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        #downloadPreview {
+            position: fixed;
+            left: -9999px;
+            top: -9999px;
+        }
+
+        .loading {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+        }
+
+        .text-style-controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .color-picker {
+            padding: 0;
+            height: 40px;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .font-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .alignment-controls {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .alignment-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            background: white;
+            cursor: pointer;
+        }
+
+        .alignment-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .opacity-control {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls-panel">
+            <div class="input-group">
+                <label>Upload Photo</label>
+                <input type="file" accept="image/*" id="photoInput">
+            </div>
+
+            <div class="input-group">
+                <label>Location Text</label>
+                <input type="text" id="locationInput" placeholder="e.g., Paris, France">
+                
+                <div class="text-style-controls">
+                    <label>Text Style</label>
+                    <input type="color" class="color-picker" id="locationColor" value="#ffffff">
+                    
+                    <div class="font-controls">
+                        <select id="locationFont">
+                            <option value="Georgia">Georgia</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Courier New">Courier New</option>
+                        </select>
+                        <select id="locationSize">
+                            <option value="16px">Small</option>
+                            <option value="24px" selected>Medium</option>
+                            <option value="32px">Large</option>
+                        </select>
+                    </div>
+
+                    <div class="alignment-controls">
+                        <button class="alignment-btn active" data-align="center">Center</button>
+                        <button class="alignment-btn" data-align="left">Left</button>
+                        <button class="alignment-btn" data-align="right">Right</button>
+                    </div>
+
+                    <label>Text Opacity</label>
+                    <input type="range" class="opacity-control" id="locationOpacity" min="0" max="1" step="0.1" value="1">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>To</label>
+                <input type="text" id="toInput" placeholder="Recipient's name">
+            </div>
+
+            <div class="input-group">
+                <label>Message</label>
+                <textarea id="messageInput" placeholder="Write your message here..."></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>From</label>
+                <input type="text" id="fromInput" placeholder="Your name">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn" onclick="flipCard()">Flip Card</button>
+                <button class="btn" onclick="downloadPostcard()">Download</button>
+            </div>
+        </div>
+
+        <div class="preview-panel">
+            <div class="postcard" id="postcard">
+                <div class="postcard-inner">
+                    <div class="postcard-front">
+                        <div class="airmail-border"></div>
+                        <div class="photo-container">
+                            <img id="postcardImage" style="display: none;">
+                            <div class="location-text" id="locationText"></div>
+                        </div>
+                    </div>
+                    <div class="postcard-back">
+                        <div class="airmail-border"></div>
+                        <div class="message-area" id="messageArea"></div>
+                        <div class="address-area">
+                            <div id="toText"></div>
+                            <div id="fromText"></div>
+                            <div class="stamp-area"></div>
+                            <div class="postmark">POSTCARD<br>2025</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading">Generating postcard...</div>
+    <div id="downloadPreview"></div>
+
+    //Add this script tag right before the closing body tag
+    <script>
+        // State management
+        let currentTextAlign = 'center';
+    
+        // Initialize event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+        });
+    
+        function initializeEventListeners() {
+            // Photo upload
+            document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
+    
+            // Text inputs with live preview
+            document.getElementById('locationInput').addEventListener('input', updateLocation);
+            document.getElementById('toInput').addEventListener('input', updateTexts);
+            document.getElementById('messageInput').addEventListener('input', updateTexts);
+            document.getElementById('fromInput').addEventListener('input', updateTexts);
+    
+            // Text styling controls
+            document.getElementById('locationColor').addEventListener('input', updateLocationStyle);
+            document.getElementById('locationFont').addEventListener('change', updateLocationStyle);
+            document.getElementById('locationSize').addEventListener('change', updateLocationStyle);
+            document.getElementById('locationOpacity').addEventListener('input', updateLocationStyle);
+    
+            // Alignment buttons
+            document.querySelectorAll('.alignment-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.alignment-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentTextAlign = this.dataset.align;
+                    updateLocationStyle();
+                });
+            });
+        }
+    
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('postcardImage');
+                    img.onload = function() {
+                        fitImage(this);
+                        img.style.display = 'block';
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    
+        function fitImage(img) {
+            const container = img.parentElement;
+            const containerAspect = container.offsetWidth / container.offsetHeight;
+            const imageAspect = img.naturalWidth / img.naturalHeight;
+    
+            if (containerAspect > imageAspect) {
+                img.style.width = '100%';
+                img.style.height = 'auto';
+                const heightDiff = container.offsetHeight - img.offsetHeight;
+                img.style.top = `${heightDiff / 2}px`;
+                img.style.left = '0';
+                img.style.transform = 'none';
+            } else {
+                img.style.height = '100%';
+                img.style.width = 'auto';
+                const widthDiff = container.offsetWidth - img.offsetWidth;
+                img.style.left = `${widthDiff / 2}px`;
+                img.style.top = '0';
+                img.style.transform = 'none';
+            }
+        }
+    
+        function updateLocationStyle() {
+            const locationText = document.getElementById('locationText');
+            const color = document.getElementById('locationColor').value;
+            const font = document.getElementById('locationFont').value;
+            const size = document.getElementById('locationSize').value;
+            const opacity = document.getElementById('locationOpacity').value;
+    
+            locationText.style.color = color;
+            locationText.style.fontFamily = font;
+            locationText.style.fontSize = size;
+            locationText.style.opacity = opacity;
+            locationText.style.textAlign = currentTextAlign;
+            locationText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
+        }
+    
+        function updateLocation() {
+            const text = document.getElementById('locationInput').value;
+            const locationElement = document.getElementById('locationText');
+            locationElement.textContent = text;
+            locationElement.style.display = text ? 'block' : 'none';
+            updateLocationStyle();
+        }
+    
+        function updateTexts() {
+            const to = document.getElementById('toInput').value;
+            const message = document.getElementById('messageInput').value;
+            const from = document.getElementById('fromInput').value;
+    
+            document.getElementById('toText').textContent = to ? `To: ${to}` : '';
+            document.getElementById('messageArea').textContent = message;
+            document.getElementById('fromText').textContent = from ? `From: ${from}` : '';
+        }
+    
+        function flipCard() {
+            document.getElementById('postcard').classList.toggle('flipped');
+        }
+    
+        async function downloadPostcard() {
+            const loading = document.querySelector('.loading');
+            loading.style.display = 'flex';
+    
+            try {
+                const preview = document.createElement('div');
+                preview.style.cssText = `
+                    width: 1600px;
+                    height: 500px;
+                    display: flex;
+                    gap: 20px;
+                    padding: 20px;
+                    background: #f4e4bc;
+                    position: fixed;
+                    left: -9999px;
+                    top: -9999px;
+                `;
+    
+                // Create front side with proper styling
+                const frontContainer = createSideContainer('front');
+                const backContainer = createSideContainer('back');
+    
+                preview.appendChild(frontContainer);
+                preview.appendChild(backContainer);
+                document.body.appendChild(preview);
+    
+                // Wait for everything to render
+                await new Promise(resolve => setTimeout(resolve, 100));
+    
+                const canvas = await html2canvas(preview, {
+                    width: 1600,
+                    height: 500,
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#f4e4bc'
+                });
+    
+                // Download the image
+                const link = document.createElement('a');
+                link.download = 'vintage-postcard.png';
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+    
+                document.body.removeChild(preview);
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to generate postcard. Please try again.');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+    
+        function createSideContainer(side) {
+            const container = document.createElement('div');
+            container.style.cssText = `
+                width: 780px;
+                height: 460px;
+                background: white;
+                position: relative;
+                border-radius: 12px;
+                overflow: hidden;
+                padding: 20px;
+            `;
+    
+            // Add airmail border
+            const border = document.createElement('div');
+            border.className = 'airmail-border';
+    
+            if (side === 'front') {
+                // Clone photo and location text
+                const photoContainer = document.querySelector('.photo-container').cloneNode(true);
+                container.appendChild(border);
+                container.appendChild(photoContainer);
+            } else {
+                // Clone back content
+                const messageArea = document.querySelector('.message-area').cloneNode(true);
+                const addressArea = document.querySelector('.address-area').cloneNode(true);
+                
+                const backContent = document.createElement('div');
+                backContent.style.cssText = `
+                    display: grid;
+                    grid-template-columns: 60% 40%;
+                    height: 100%;
+                    position: relative;
+                `;
+                
+                backContent.appendChild(messageArea);
+                backContent.appendChild(addressArea);
+                
+                container.appendChild(border);
+                container.appendChild(backContent);
+            }
+    
+            return container;
+        }
+    </script>
+</body>
+</html>
